@@ -1,65 +1,182 @@
-import Head from 'next/head'
-import styles from '../styles/Home.module.css'
+import { useState, useEffect } from "react";
+import { useFormik } from "formik";
+import { useDebouncedCallback } from "use-debounce";
+import axios from "axios";
+
+import Head from "next/head";
+
+import {
+  Main,
+  Form,
+  Label,
+  Input,
+  Button,
+  Link,
+  Item,
+  Title,
+  ActualPrice,
+  Elimina,
+  Delete,
+} from "../styles/";
+
+import { Visit } from "../styles/";
+
+const timeout = 1;
+
+function ItemComponent({
+  itemIndex,
+  link,
+  maxPrice,
+  changeMaxPrice,
+  deleteItem,
+}) {
+  // const [liveTracking, setLiveTracking] = useState(true);
+  const [scrapedInfo, setScrapedInfo] = useState({});
+
+  const getPrice = async () => {
+    try {
+      const { data } = await axios.post(`http://localhost:3000/api/getprice`, {
+        link,
+      });
+
+      const { item } = data;
+
+      setScrapedInfo(item);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+  const debouncedGetPrice = useDebouncedCallback(getPrice, 1000 * timeout);
+
+  useEffect(() => {
+    getPrice();
+  }, []);
+
+  useEffect(() => {
+    // if (liveTracking) return debouncedGetPrice();
+    debouncedGetPrice();
+  });
+
+  return !scrapedInfo.name ? (
+    <Item>
+      <Link target="_blank" href={link}>
+        <Visit />
+      </Link>
+      <Title>Non disponibile / Prezzo non trovato</Title>
+      <Elimina onClick={() => deleteItem(itemIndex)}>
+        <Delete />
+      </Elimina>
+    </Item>
+  ) : (
+    <Item conviene={scrapedInfo.price <= maxPrice ? true : false}>
+      <Link target="_blank" href={link}>
+        <Visit />
+      </Link>
+      <Title>{scrapedInfo.name}</Title>
+
+      <ActualPrice>{scrapedInfo.price}€</ActualPrice>
+      <Label>
+        Prezzo massimo:
+        <Input
+          type="number"
+          value={maxPrice}
+          onChange={(e) => changeMaxPrice(itemIndex, e.target.value)}
+        />
+      </Label>
+      {/* <Label>
+        Live tracking
+        <Input
+          type="checkbox"
+          checked={liveTracking}
+          onChange={() => setLiveTracking(!liveTracking)}
+        />
+      </Label> */}
+      <Elimina onClick={() => deleteItem(itemIndex)}>
+        <Delete />
+      </Elimina>
+    </Item>
+  );
+}
 
 export default function Home() {
+  const [items, setItems] = useState([]);
+
+  const { values, handleSubmit, handleChange } = useFormik({
+    initialValues: {
+      link: "",
+      maxPrice: 0,
+    },
+    onSubmit: (v) => {
+      setItems([...items, v]);
+    },
+  });
+
+  useEffect(() => {
+    const localItems = JSON.parse(localStorage.getItem("items"));
+    if (localItems) return setItems(localItems);
+    localStorage.setItem("items", JSON.stringify(items));
+  }, []);
+
+  useEffect(() => {
+    const toLocal = JSON.stringify(items);
+    localStorage.setItem("items", toLocal);
+  }, [items]);
+
+  const changeMaxPrice = (itemIndex, newValue) => {
+    const newItemValue = { ...items[itemIndex], maxPrice: newValue };
+    const newItems = [...items];
+    newItems[itemIndex] = newItemValue;
+    setItems(newItems);
+  };
+
+  const deleteItem = (itemIndex) => {
+    const newItems = [...items];
+    newItems.splice(itemIndex, 1);
+    setItems(newItems);
+  };
+
   return (
-    <div className={styles.container}>
+    <div>
       <Head>
-        <title>Create Next App</title>
-        <link rel="icon" href="/favicon.ico" />
+        <title>Amazon price tracker</title>
       </Head>
 
-      <main className={styles.main}>
-        <h1 className={styles.title}>
-          Welcome to <a href="https://nextjs.org">Next.js!</a>
-        </h1>
+      <Main>
+        <Form onSubmit={handleSubmit}>
+          <Label>
+            Link del prodotto:
+            <Input
+              type="text"
+              name="link"
+              value={values.link}
+              onChange={handleChange}
+            />
+          </Label>
 
-        <p className={styles.description}>
-          Get started by editing{' '}
-          <code className={styles.code}>pages/index.js</code>
-        </p>
+          <Label>
+            Prezzo massimo:
+            <Input
+              type="number"
+              name="maxPrice"
+              value={values.maxPrice}
+              onChange={handleChange}
+            />
+          </Label>
 
-        <div className={styles.grid}>
-          <a href="https://nextjs.org/docs" className={styles.card}>
-            <h3>Documentation &rarr;</h3>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
+          <Button type="submit">Aggiungi prodotto</Button>
+        </Form>
 
-          <a href="https://nextjs.org/learn" className={styles.card}>
-            <h3>Learn &rarr;</h3>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
-
-          <a
-            href="https://github.com/vercel/next.js/tree/master/examples"
-            className={styles.card}
-          >
-            <h3>Examples &rarr;</h3>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-          >
-            <h3>Deploy &rarr;</h3>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
-        </div>
-      </main>
-
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <img src="/vercel.svg" alt="Vercel Logo" className={styles.logo} />
-        </a>
-      </footer>
+        {items.map(({ link, maxPrice }, itemIndex) => (
+          <ItemComponent
+            link={link}
+            maxPrice={maxPrice}
+            key={link}
+            itemIndex={itemIndex}
+            changeMaxPrice={changeMaxPrice}
+            deleteItem={deleteItem}
+          />
+        ))}
+      </Main>
     </div>
-  )
+  );
 }

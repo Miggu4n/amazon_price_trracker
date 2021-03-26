@@ -8,8 +8,15 @@
     "start": "next start"
   },
   "dependencies": {
+    "amazon-auto-buy-bot": "^1.0.2",
+    "axios": "^0.21.1",
+    "formik": "^2.2.6",
     "next": "10.0.9",
+    "price-finder": "^5.0.2",
     "react": "17.0.1",
-    "react-dom": "17.0.1"
+    "react-dom": "17.0.1",
+    "styled-components": "^5.2.1",
+    "styled-icons": "^10.29.0",
+    "use-debounce": "^6.0.0"
   }
 }
